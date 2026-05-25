@@ -119,6 +119,16 @@ function getSeedForDate(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function safeCreateIcons() {
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    try {
+      lucide.createIcons();
+    } catch (e) {
+      console.warn("Failed to create lucide icons:", e);
+    }
+  }
+}
+
 // Astronomy Calculation Modules
 const SIGNS_ORDER = ["牡羊座", "金牛座", "雙子座", "巨蟹座", "獅子座", "處女座", "天秤座", "天蠍座", "射手座", "摩羯座", "水瓶座", "雙魚座"];
 
@@ -506,6 +516,7 @@ function generateDailyAstrologyData(date, placementsObj) {
 
 // Recalculates both natal and daily forecasting values
 function recalculateDailyData() {
+  state.tarotImageError = false;
   dailyData = generateDailyAstrologyData(state.targetDate, placements);
 }
 
@@ -554,7 +565,7 @@ function renderIntro() {
       </div>
     </div>
   `;
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // Render Date Deck Info
@@ -603,7 +614,7 @@ function renderTabs() {
     `;
   }).join('');
   
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // Renders the specific Tab Contents
@@ -613,15 +624,36 @@ function renderActiveTabContent() {
   
   holder.className = "animate-fade-in";
   
-  if (state.activeTab === 'daily') {
-    renderDailyTab(holder);
-  } else if (state.activeTab === 'weekly') {
-    renderWeeklyTab(holder);
-  } else if (state.activeTab === 'birth') {
-    renderBirthTab(holder);
+  // Guard placements and dailyData
+  if (!placements) {
+    placements = calculateAstrologicalPlacements(state.birthInfo);
+  }
+  if (!dailyData) {
+    recalculateDailyData();
   }
   
-  lucide.createIcons();
+  try {
+    if (state.activeTab === 'daily') {
+      renderDailyTab(holder);
+    } else if (state.activeTab === 'weekly') {
+      renderWeeklyTab(holder);
+    } else if (state.activeTab === 'birth') {
+      renderBirthTab(holder);
+    }
+  } catch (e) {
+    console.error("Error rendering active tab content:", e);
+    holder.innerHTML = `
+      <div class="bg-white border border-[#eedddb] rounded-3xl p-8 text-center max-w-xl mx-auto my-8">
+        <strong class="text-sm font-sans font-extrabold text-[#a66468] block">星盤軌道能量解析受干涉</strong>
+        <p class="text-xs text-[#8a7274] mt-2 font-medium">請點擊其他分頁或嘗試重整，以重新引導您的精密天宮印記。</p>
+        <p class="text-[9px] text-[#be9f9d] font-mono mt-3 text-left border-t border-[#eedddb]/40 pt-2 leading-normal">
+          Diagnostic details: ${e.message}
+        </p>
+      </div>
+    `;
+  }
+  
+  safeCreateIcons();
 }
 
 // --- TAB RENDERING METHODS ---
@@ -637,7 +669,7 @@ function renderDailyTab(holder) {
         
         <!-- Daily Astro News Card -->
         <div class="bg-white border border-[#eedddb] rounded-3xl p-6 shadow-sm relative overflow-hidden">
-          <div class="absolute -top-12 -left-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none" />
+          <div class="absolute -top-12 -left-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none"></div>
           
           <!-- Header -->
           <div class="flex items-center gap-3 pb-6 border-b border-[#eedddb]">
@@ -645,8 +677,8 @@ function renderDailyTab(holder) {
               <i data-lucide="sparkles" class="w-5 h-5 animate-pulse"></i>
             </span>
             <div>
-              <h2 class="text-xl font-sans font-bold text-[#3a2829] tracking-wider">今日太空港星相報面</h2>
-              <p class="text-sm text-[#8a7274] mt-0.5">主星相位疊比精確運算 • 對齊金牛先天格局</p>
+              <h2 class="text-xl font-sans font-bold text-[#3a2829] tracking-wider">今日星象指南</h2>
+              <p class="text-sm text-[#8a7274] mt-0.5">個人星盤當日能量分析</p>
             </div>
           </div>
           
@@ -711,15 +743,15 @@ function renderDailyTab(holder) {
 
         <!-- Transit Celestial Alignment Panel -->
         <div class="bg-white border border-[#eedddb] rounded-3xl p-6 shadow-sm relative overflow-hidden">
-          <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none" />
+          <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none"></div>
           
           <div class="flex items-center gap-2 pb-6 border-b border-[#eedddb]">
             <span class="p-1.5 rounded-lg bg-[#be9f9d]/10 text-[#a66468] border border-[#eedddb]/40">
               <i data-lucide="compass" class="w-5 h-5"></i>
             </span>
             <div>
-              <h2 class="text-xl font-sans font-bold text-[#3a2829] tracking-wider">今日過境星體相位 (Transits)</h2>
-              <p class="text-sm text-[#8a7274] mt-0.5">動態天體軌跡過度投影 • 計算當日即時干涉值</p>
+              <h2 class="text-xl font-sans font-bold text-[#3a2829] tracking-wider">星體軌道</h2>
+              <p class="text-sm text-[#8a7274] mt-0.5">當日過境星象天宮度數觀測</p>
             </div>
           </div>
 
@@ -824,9 +856,20 @@ function renderTarotSection() {
                   <!-- Image frame -->
                   <div class="relative flex-1 w-full my-2.5 rounded-lg overflow-hidden bg-[#e0d6d5]">
                     ${state.tarotImageError 
-                      ? `<div class="absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-[#be9f9d]/15">
-                           <i data-lucide="image-off" class="w-8 h-8 text-[#a66468]"></i>
-                           <span class="text-[10px] text-[#8a7274] mt-1 font-sans">${card.name}</span>
+                      ? `<div class="absolute inset-0 flex flex-col items-center justify-between p-4 text-center bg-gradient-to-b from-[#1e1112] via-[#3a2022] to-[#1e1112] border border-[#eedddb]/35 relative overflow-hidden select-none">
+                           <div class="absolute inset-0 opacity-40 bg-[radial-gradient(white_1.2px,transparent_1.2px)] [background-size:12px_12px] pointer-events-none"></div>
+                           <div class="absolute top-1/4 left-1/4 w-24 h-24 bg-[#be9f9d]/20 rounded-full filter blur-xl animate-pulse pointer-events-none"></div>
+                           
+                           <span class="text-[8px] text-[#eedddb]/60 uppercase tracking-widest font-mono pointer-events-none">ASTRA TAROT</span>
+                           
+                           <div class="w-14 h-14 rounded-full border border-[#eedddb]/30 flex items-center justify-center bg-[#be9f9d]/5 relative z-10 shadow-inner">
+                             <span class="text-4xl text-[#eedddb] drop-shadow-[0_0_8px_rgba(238,221,219,0.5)] font-mono select-none pointer-events-none">${card.mysticSymbol}</span>
+                           </div>
+                           
+                           <div class="z-10 pointer-events-none">
+                             <strong class="text-[11px] text-[#eedddb] block tracking-wide font-sans">${card.name.split(' ')[0]}</strong>
+                             <span class="text-[8px] text-[#eedddb]/60 block font-mono mt-0.5">${card.id.toUpperCase()}</span>
+                           </div>
                          </div>`
                       : `<img 
                            src="${card.imageUrl}" 
@@ -883,7 +926,7 @@ function renderTarotSection() {
       </div>
     </div>
   `;
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // RENDERS THE MATHEMATICAL MOON PHASE CARD
@@ -897,7 +940,7 @@ function renderMoonPhaseCard() {
   
   container.className = "bg-white border border-[#eedddb] rounded-3xl p-6 shadow-sm relative overflow-hidden text-left";
   container.innerHTML = `
-    <div class="absolute -top-12 -left-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none" />
+    <div class="absolute -top-12 -left-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none"></div>
 
     <!-- Header -->
     <div class="flex items-center gap-2 pb-6 border-b border-[#eedddb]">
@@ -1014,7 +1057,7 @@ function renderMoonPhaseCard() {
 
     </div>
   `;
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // RENDERS THE WEEKLY FORECASTS TAB
@@ -1076,7 +1119,7 @@ function renderWeeklyTab(holder) {
   holder.innerHTML = `
     <!-- Weekly trend chart card -->
     <div class="bg-white border border-[#eedddb] rounded-3xl p-6 shadow-sm relative overflow-hidden mb-8 text-left">
-      <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none" />
+      <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none"></div>
 
       <!-- Header -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-[#eedddb] gap-4">
@@ -1285,7 +1328,7 @@ function renderWeeklyTab(holder) {
 
     <!-- Bento Grid Opening Assets -->
     <div class="bg-white border border-[#eedddb] rounded-3xl p-6 shadow-sm relative overflow-hidden text-left" id="lucky-items-card">
-      <div class="absolute -top-12 -right-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none" />
+      <div class="absolute -top-12 -right-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none"></div>
 
       <!-- Header -->
       <div class="flex items-center gap-2 pb-6 border-b border-[#eedddb]">
@@ -1302,6 +1345,7 @@ function renderWeeklyTab(holder) {
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-6 text-left">
          ${bentoItems.map((cell) => {
            let innerCellDisplay = '';
+           const displayValue = String(cell.value).replace(/\s*[\(（][^）\)]*[\)）]/g, '').trim();
            
            if (cell.isColor) {
              innerCellDisplay = `
@@ -1311,21 +1355,21 @@ function renderWeeklyTab(holder) {
                    style="background-color: ${cell.colorHex}"
                  ></span>
                  <strong class="text-xs font-sans font-bold text-[#3a2829] group-hover:text-[#a66468] transition-colors">
-                   ${cell.value}
+                   ${displayValue}
                  </strong>
                </div>
              `;
            } else if (cell.isNum) {
              innerCellDisplay = `
                <div class="flex items-baseline gap-1 mt-1">
-                  <span class="text-2xl font-mono font-black text-[#a66468] tracking-tighter drop-shadow-sm">${cell.value}</span>
+                  <span class="text-2xl font-mono font-black text-[#a66468] tracking-tighter drop-shadow-sm">${displayValue}</span>
                   <span class="text-[10px] text-[#8a7274]">號</span>
                </div>
              `;
            } else {
              innerCellDisplay = `
                <div class="text-xs font-sans font-bold text-[#3a2829] group-hover:text-[#a66468] transition-colors leading-tight mt-1">
-                 ${cell.value}
+                 ${displayValue}
                </div>
              `;
            }
@@ -1351,7 +1395,7 @@ function renderWeeklyTab(holder) {
   
   // Render default chart tooltip
   renderChartTooltip();
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // Draw the specific indicator tooltip state
@@ -1383,7 +1427,7 @@ function renderChartTooltip() {
         <i data-lucide="eye" class="w-3.5 h-3.5"></i> Hover/滑鼠懸停於上方度數點，即可查看每日指標度數細節
       </p>
     `;
-    lucide.createIcons();
+    safeCreateIcons();
   }
 }
 
@@ -1391,8 +1435,8 @@ function renderChartTooltip() {
 function renderBirthTab(holder) {
   holder.innerHTML = `
     <div class="bg-white border border-[#eedddb] rounded-3xl p-6 shadow-sm relative overflow-hidden text-left" id="birth-chart-card">
-      <div class="absolute -top-12 -left-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none" />
-      <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-rose-500/5 rounded-full filter blur-3xl pointer-events-none" />
+      <div class="absolute -top-12 -left-12 w-48 h-48 bg-[#be9f9d]/10 rounded-full filter blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-rose-500/5 rounded-full filter blur-3xl pointer-events-none"></div>
 
       <!-- Header block -->
       <div class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-[#eedddb] gap-4">
@@ -1616,7 +1660,7 @@ function renderAstroWheel() {
     </div>
     <span class="text-[#8a7274] text-[10px] font-sans font-bold mt-3">※ 點擊星盤上的標識點 (☉, ☽, ASC, MC) 可切換下方詳細解析</span>
   `;
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // Isolated drawing method for natal details descriptions (Right side of Birth tab)
@@ -1699,7 +1743,7 @@ function renderBirthChartDetails() {
       </p>
     </div>
   `;
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // --- PROFILE MODAL CONTROLLERS ---
@@ -1897,7 +1941,7 @@ function renderProfileModalContent() {
       </div>
     `;
   }
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // Update Top level Header Placements metadata
@@ -2090,5 +2134,5 @@ window.addEventListener('DOMContentLoaded', () => {
   renderActiveTabContent();
   
   // 4. Initialise Lucide SVGs
-  lucide.createIcons();
+  safeCreateIcons();
 });
